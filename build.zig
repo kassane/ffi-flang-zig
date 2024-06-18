@@ -15,17 +15,7 @@ pub fn build(b: *std.Build) void {
         .flags = &.{
             "-Wall",
             "-Wextra",
-            // "-pedantic",
-            "-std=c++20",
-        },
-    });
-    libfortran.addCSourceFiles(.{
-        .files = lib_common,
-        .flags = &.{
-            "-Wall",
-            "-Wextra",
-            // "-pedantic",
-            "-std=c++20",
+            "-pedantic",
         },
     });
     libfortran.addCSourceFiles(.{
@@ -33,10 +23,10 @@ pub fn build(b: *std.Build) void {
         .flags = &.{
             "-Wall",
             "-Wextra",
-            // "-pedantic",
-            "-std=c++20",
+            "-pedantic",
         },
     });
+
     libfortran.defineCMacro("FLANG_LITTLE_ENDIAN", null);
     libfortran.linkLibCpp();
     b.installArtifact(libfortran);
@@ -53,6 +43,8 @@ pub fn build(b: *std.Build) void {
             .lib = libfortran,
         });
         b.installArtifact(exe);
+        const run = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
+        run.dependOn(&exe.step);
     }
 }
 
@@ -146,6 +138,8 @@ const runtime = &.{
     "src/runtime/unit.cpp",
     "src/runtime/utf.cpp",
 };
+
+// Need LLVM-APIs
 
 const lib_common = &.{
     "src/lib/Common/Fortran-features.cpp",
