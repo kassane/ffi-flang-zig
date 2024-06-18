@@ -43,8 +43,13 @@ pub fn build(b: *std.Build) void {
             .lib = libfortran,
         });
         b.installArtifact(exe);
-        const run = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
-        run.dependOn(&exe.step);
+        const run_cmd = b.addRunArtifact(exe);
+        run_cmd.step.dependOn(b.getInstallStep());
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+        }
+        const run_step = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
+        run_step.dependOn(&run_cmd.step);
     }
 }
 
