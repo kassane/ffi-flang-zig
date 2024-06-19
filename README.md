@@ -9,3 +9,14 @@ Inspired by [sourceryinstitute/ISO_Fortran_binding](https://github.com/sourceryi
 ## Requires
 
 - [Zig](https://ziglang.org/download) v0.13.0 or master
+- [Flang-new](https://github.com/llvm/llvm-project/tree/llvmorg-18.1.7/flang)
+
+
+## How to use
+
+Build docker and run image:
+
+```bash
+$ docker build -t flang-zig -f .devcontainer/Dockerfile
+$ docker run -it --rm -v $(pwd):/app -w /app flang-zig bash
+```
