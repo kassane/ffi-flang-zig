@@ -4,7 +4,13 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
-    const libfortran = b.addStaticLibrary(.{
+    const shared = b.option(bool, "Shared", "Build as shared library [default: false]") orelse false;
+
+    const libfortran = if (shared) b.addSharedLibrary(.{
+        .name = "flang",
+        .target = target,
+        .optimize = optimize,
+    }) else b.addStaticLibrary(.{
         .name = "flang",
         .target = target,
         .optimize = optimize,
@@ -15,7 +21,7 @@ pub fn build(b: *std.Build) void {
         .flags = &.{
             "-Wall",
             "-Wextra",
-            "-pedantic",
+            "-std=c++17",
         },
     });
     libfortran.addCSourceFiles(.{
@@ -23,9 +29,19 @@ pub fn build(b: *std.Build) void {
         .flags = &.{
             "-Wall",
             "-Wextra",
-            "-pedantic",
+            "-std=c++17",
         },
     });
+
+    if (optimize != .Debug)
+        libfortran.addCSourceFile(.{
+            .file = b.path("src/runtime/FortranMain/Fortran_main.c"),
+            .flags = &.{
+                "-Wall",
+                "-Wextra",
+            },
+        });
+
     switch (libfortran.rootModuleTarget().cpu.arch.endian()) {
         .big => libfortran.defineCMacro("FLANG_BIG_ENDIAN", null),
         .little => libfortran.defineCMacro("FLANG_LITTLE_ENDIAN", null),
@@ -33,8 +49,10 @@ pub fn build(b: *std.Build) void {
 
     if (libfortran.rootModuleTarget().abi != .msvc)
         libfortran.linkLibCpp()
-    else
+    else {
+        libfortran.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
         libfortran.linkLibC();
+    }
     b.installArtifact(libfortran);
     libfortran.installHeadersDirectory(b.path("include"), "", .{
         .exclude_extensions = &.{
@@ -45,19 +63,22 @@ pub fn build(b: *std.Build) void {
         },
     });
 
-    const exe = buildTest(b, exeInfo{
-        .target = target,
-        .optimize = optimize,
-        .lib = libfortran,
-    });
-    b.installArtifact(exe);
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
+    // avoid duplicate main symbol
+    if (optimize == .Debug) {
+        const exe = buildTest(b, exeInfo{
+            .target = target,
+            .optimize = optimize,
+            .lib = libfortran,
+        });
+        b.installArtifact(exe);
+        const run_cmd = b.addRunArtifact(exe);
+        run_cmd.step.dependOn(b.getInstallStep());
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+        }
+        const run_step = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
+        run_step.dependOn(&run_cmd.step);
     }
-    const run_step = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
-    run_step.dependOn(&run_cmd.step);
 }
 
 const exeInfo = struct {
@@ -82,8 +103,10 @@ fn buildTest(b: *std.Build, options: exeInfo) *std.Build.Step.Compile {
     exe.linkLibrary(options.lib);
     if (exe.rootModuleTarget().abi != .msvc)
         exe.linkLibCpp()
-    else
+    else {
+        exe.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
         exe.linkLibC();
+    }
     return exe;
 }
 
