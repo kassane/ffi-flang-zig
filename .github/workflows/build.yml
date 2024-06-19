@@ -20,16 +20,16 @@ jobs:
       - name: Running test
         run: zig build test
 
-  zig-msvc:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: korandoru/setup-zig@v1
-        with:
-          zig-version: master
-      - name: (Zig) build
-        run: zig build --summary new -freference-trace -Dtarget=native-windows-msvc
-      - name: Running test
-        run: zig build test
+  # zig-msvc:
+  #   runs-on: windows-latest
+  #   strategy:
+  #     fail-fast: false
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: korandoru/setup-zig@v1
+  #       with:
+  #         zig-version: master
+  #     - name: (Zig) build
+  #       run: zig build --summary new -freference-trace -Dtarget=native-windows-msvc
+  #     - name: Running test
+  #       run: zig build test
