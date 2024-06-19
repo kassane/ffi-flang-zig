@@ -68,7 +68,7 @@ const exeInfo = struct {
 
 fn buildTest(b: *std.Build, options: exeInfo) *std.Build.Step.Compile {
     const exe = b.addTest(.{
-        .root_source_file = b.path("tests/test-CFI_address.zig"),
+        .root_source_file = b.path("tests/tests.zig"),
         .target = options.target,
         .optimize = options.optimize,
     });
