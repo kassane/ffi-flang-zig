@@ -1,19 +1,81 @@
 const std = @import("std");
 
+const flang_version: std.SemanticVersion = .{
+    .major = 18,
+    .minor = 1,
+    .patch = 7,
+};
+
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
-    const shared = b.option(bool, "Shared", "Build as shared library [default: false]") orelse false;
+    const shared = b.option(bool, "shared", "Build as shared library [default: false]") orelse false;
+    const amalgamation = b.option(bool, "amalgamation", "Build as amalgamation [default: false]") orelse false;
+    const tests = b.option(bool, "enable-tests", "Build tests [default: false]") orelse false;
 
-    const libfortran = if (shared) b.addSharedLibrary(.{
-        .name = "flang",
+    const libMain = buildFortranMain(b, .{
         .target = target,
         .optimize = optimize,
+        .is_shared = shared,
+    });
+    const libDec = buildFortranDecimal(b, .{
+        .target = target,
+        .optimize = optimize,
+        .is_shared = shared,
+    });
+    const libRuntime = buildFortranRuntime(b, .{
+        .target = target,
+        .optimize = optimize,
+        .is_shared = shared,
+    });
+
+    if (amalgamation) {
+        if (!tests) libRuntime.linkLibrary(libMain);
+        libRuntime.linkLibrary(libDec);
+    } else {
+        b.installArtifact(libMain);
+        b.installArtifact(libDec);
+    }
+    b.installArtifact(libRuntime);
+
+    // avoid duplicate main symbol
+    if (tests and amalgamation) {
+        const exe = buildTest(b, exeInfo{
+            .target = target,
+            .optimize = optimize,
+            .lib = libRuntime,
+        });
+
+        b.installArtifact(exe);
+
+        const run_cmd = b.addRunArtifact(exe);
+        run_cmd.step.dependOn(b.getInstallStep());
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+        }
+        const run_step = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
+        run_step.dependOn(&run_cmd.step);
+    }
+}
+
+const libConfig = struct {
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    is_shared: bool = false,
+};
+
+fn buildFortranRuntime(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
+    const libfortran = if (options.is_shared) b.addSharedLibrary(.{
+        .name = "FortranRuntime",
+        .target = options.target,
+        .optimize = options.optimize,
+        .version = flang_version,
     }) else b.addStaticLibrary(.{
-        .name = "flang",
-        .target = target,
-        .optimize = optimize,
+        .name = "FortranRuntime",
+        .target = options.target,
+        .optimize = options.optimize,
+        .version = flang_version,
     });
     libfortran.addIncludePath(b.path("include"));
     libfortran.addCSourceFiles(.{
@@ -24,23 +86,6 @@ pub fn build(b: *std.Build) void {
             "-std=c++17",
         },
     });
-    libfortran.addCSourceFiles(.{
-        .files = lib_decimal,
-        .flags = &.{
-            "-Wall",
-            "-Wextra",
-            "-std=c++17",
-        },
-    });
-
-    if (optimize != .Debug)
-        libfortran.addCSourceFile(.{
-            .file = b.path("src/runtime/FortranMain/Fortran_main.c"),
-            .flags = &.{
-                "-Wall",
-                "-Wextra",
-            },
-        });
 
     switch (libfortran.rootModuleTarget().cpu.arch.endian()) {
         .big => libfortran.defineCMacro("FLANG_BIG_ENDIAN", null),
@@ -53,7 +98,6 @@ pub fn build(b: *std.Build) void {
         libfortran.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
         libfortran.linkLibC();
     }
-    b.installArtifact(libfortran);
     libfortran.installHeadersDirectory(b.path("include"), "", .{
         .exclude_extensions = &.{
             "clang-format",
@@ -62,24 +106,73 @@ pub fn build(b: *std.Build) void {
             "def",
         },
     });
-
-    // avoid duplicate main symbol
-    if (optimize == .Debug) {
-        const exe = buildTest(b, exeInfo{
-            .target = target,
-            .optimize = optimize,
-            .lib = libfortran,
-        });
-        b.installArtifact(exe);
-        const run_cmd = b.addRunArtifact(exe);
-        run_cmd.step.dependOn(b.getInstallStep());
-        if (b.args) |args| {
-            run_cmd.addArgs(args);
-        }
-        const run_step = b.step(exe.name, b.fmt("Run {s}", .{exe.name}));
-        run_step.dependOn(&run_cmd.step);
-    }
+    return libfortran;
 }
+
+fn buildFortranMain(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
+    const libmain = if (options.is_shared) b.addSharedLibrary(.{
+        .name = "Fortran_main",
+        .target = options.target,
+        .optimize = options.optimize,
+        .version = flang_version,
+    }) else b.addStaticLibrary(.{
+        .name = "Fortran_main",
+        .target = options.target,
+        .optimize = options.optimize,
+        .version = flang_version,
+    });
+    libmain.addIncludePath(b.path("include"));
+    libmain.addCSourceFile(.{
+        .file = b.path("src/runtime/FortranMain/Fortran_main.c"),
+        .flags = &.{
+            "-Wall",
+            "-Wextra",
+        },
+    });
+    if (libmain.rootModuleTarget().abi != .msvc)
+        libmain.linkLibCpp()
+    else {
+        libmain.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
+        libmain.linkLibC();
+    }
+    return libmain;
+}
+
+fn buildFortranDecimal(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
+    const libdecimal = if (options.is_shared) b.addSharedLibrary(.{
+        .name = "FortranDecimal",
+        .target = options.target,
+        .optimize = options.optimize,
+        .version = flang_version,
+    }) else b.addStaticLibrary(.{
+        .name = "FortranDecimal",
+        .target = options.target,
+        .optimize = options.optimize,
+        .version = flang_version,
+    });
+    libdecimal.addIncludePath(b.path("include"));
+    libdecimal.addCSourceFiles(.{
+        .files = lib_decimal,
+        .flags = &.{
+            "-Wall",
+            "-Wextra",
+            "-std=c++17",
+        },
+    });
+    switch (libdecimal.rootModuleTarget().cpu.arch.endian()) {
+        .big => libdecimal.defineCMacro("FLANG_BIG_ENDIAN", null),
+        .little => libdecimal.defineCMacro("FLANG_LITTLE_ENDIAN", null),
+    }
+    if (libdecimal.rootModuleTarget().abi != .msvc)
+        libdecimal.linkLibCpp()
+    else {
+        libdecimal.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
+        libdecimal.linkLibC();
+    }
+    return libdecimal;
+}
+
+// -----------------------------------------------------------------------------
 
 const exeInfo = struct {
     target: std.Build.ResolvedTarget,
@@ -98,6 +191,7 @@ fn buildTest(b: *std.Build, options: exeInfo) *std.Build.Step.Compile {
         .little => exe.defineCMacro("FLANG_LITTLE_ENDIAN", null),
     }
     for (options.lib.root_module.include_dirs.items) |dir| {
+        if (dir == .other_step) continue;
         exe.addIncludePath(dir.path);
     }
     exe.linkLibrary(options.lib);

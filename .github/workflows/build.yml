@@ -18,7 +18,7 @@ jobs:
       - name: (Zig) Build
         run: zig build --summary new -freference-trace
       - name: Running test
-        run: zig build test
+        run: zig build -Denable-tests -Damalgamation test
 
   # zig-msvc:
   #   runs-on: windows-latest

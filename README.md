@@ -20,3 +20,21 @@ Build docker and run image:
 $ docker build -t flang-zig -f .devcontainer/Dockerfile
 $ docker run -it --rm -v $(pwd):/app -w /app flang-zig bash
 ```
+
+### Build help
+
+```bash
+Project-Specific Options:
+  -Doptimize=[enum]            Prioritize performance, safety, or binary size
+                                 Supported Values:
+                                   Debug
+                                   ReleaseSafe
+                                   ReleaseFast
+                                   ReleaseSmall
+  -Dtarget=[string]            The CPU architecture, OS, and ABI to build for
+  -Dcpu=[string]               Target CPU features to add or subtract
+  -Ddynamic-linker=[string]    Path to interpreter on the target system
+  -Dshared=[bool]              Build as shared library [default: false]
+  -Damalgamation=[bool]        Build as amalgamation [default: false]
+  -Denable-tests=[bool]        Build tests [default: false]
+```
