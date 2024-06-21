@@ -1,4 +1,8 @@
-FROM ubuntu:latest
+FROM ubuntu:24.04
+
+LABEL maintainer="Matheus C. França <matheus-catarino@hotmail.com>"
+LABEL version="1.0"
+LABEL description="This is a devcontainer image for zig and flang toolchains"
 
 # Ubuntu:Noble have flang-18/flang-new
 
@@ -14,12 +18,9 @@ RUN apt update && apt install -y --no-install-recommends \
 RUN dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
         amd64) zigupURL='https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-x86_64-linux.tar.gz' ;; \
-        armhf) zigupURL='https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-arm-linux.tar.gz' ;; \
-        arm64) zigupURL='https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-aarch64-linux.tar.gz' ;; \
         riscv64) zigupURL='https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-riscv64-linux.tar.gz' ;; \
         ppc64) zigupURL='https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-powerpc-linux.tar.gz' ;; \
         ppc64el) zigupURL='https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-powerpc64le-linux.tar.gz' ;; \
-        i386) echo >&2 "unsupported architecture: ${dpkgArch}"; exit 1 ;; \
         *) echo >&2 "unsupported architecture: ${dpkgArch}"; exit 1 ;; \
     esac; \
     wget -q "$zigupURL" && \
@@ -41,6 +42,27 @@ RUN apt autoclean \
 
 WORKDIR /app
 
+ENV CC=zcc \
+    CXX=zcxx \
+    LD=ld \
+    FC=flang-new
+
+RUN cat <<EOF > /usr/bin/zcc
+#!/usr/bin/env bash
+`which zig` cc -lunwind -fno-sanitize=all -s "\$@"
+EOF
+RUN cat <<EOF > /usr/bin/zcxx
+#!/usr/bin/env bash
+`which zig` c++ -fno-sanitize=all -s "\$@"
+EOF
+RUN cat <<EOF > /usr/bin/ld
+#!/usr/bin/env bash
+`which zig` ld.lld "\$@"
+EOF
+
+RUN chmod +x /usr/bin/zcc; \
+    chmod +x /usr/bin/zcxx; \
+    chmod +x /usr/bin/ld
 
 ARG UNAME=flang
 ARG UID=1000

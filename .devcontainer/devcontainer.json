@@ -1,0 +1,29 @@
+{
+    "name": "Fortran/C/CXX/Zig Development",
+    "build": {
+        "context": "..",
+        "dockerfile": "./Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "fortran-lang.linter-gfortran",
+                "ziglang.vscode-zig",
+                "voidc.llvm-asm" // llvm-ir syntax color
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "terminal.integrated.profiles.linux": {
+                    "bash": {
+                        "path": "/usr/bin/bash",
+                        "args": [
+                            "-l"
+                        ] // Start login shell to source .bashrc
+                    }
+                }
+            }
+        }
+    },
+    "remoteUser": "vscode"
+}
