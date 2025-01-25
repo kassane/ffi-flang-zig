@@ -24,9 +24,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-      - uses: korandoru/setup-zig@v1
-        with:
-          zig-version: master
+      - uses: mlugg/setup-zig@v1
       # - name: get-flang-linux
       #   run: |
       #       sudo apt-get update
