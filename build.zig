@@ -77,8 +77,8 @@ fn buildFortranRuntime(b: *std.Build, options: libConfig) *std.Build.Step.Compil
         .optimize = options.optimize,
         .version = flang_version,
     });
-    libfortran.addIncludePath(b.path("include"));
-    libfortran.addCSourceFiles(.{
+    libfortran.root_module.addIncludePath(b.path("include"));
+    libfortran.root_module.addCSourceFiles(.{
         .files = runtime,
         .flags = &.{
             "-Wall",
@@ -88,14 +88,14 @@ fn buildFortranRuntime(b: *std.Build, options: libConfig) *std.Build.Step.Compil
     });
 
     switch (libfortran.rootModuleTarget().cpu.arch.endian()) {
-        .big => libfortran.defineCMacro("FLANG_BIG_ENDIAN", null),
-        .little => libfortran.defineCMacro("FLANG_LITTLE_ENDIAN", null),
+        .big => libfortran.root_module.addCMacro("FLANG_BIG_ENDIAN", "1"),
+        .little => libfortran.root_module.addCMacro("FLANG_LITTLE_ENDIAN", "1"),
     }
 
     if (libfortran.rootModuleTarget().abi != .msvc)
         libfortran.linkLibCpp()
     else {
-        libfortran.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
+        libfortran.root_module.addCMacro("_CRT_SECURE_NO_WARNINGS", "");
         libfortran.linkLibC();
     }
     libfortran.installHeadersDirectory(b.path("include"), "", .{
@@ -121,7 +121,7 @@ fn buildFortranMain(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
         .optimize = options.optimize,
         .version = flang_version,
     });
-    libmain.addIncludePath(b.path("include"));
+    libmain.root_module.addIncludePath(b.path("include"));
     libmain.addCSourceFile(.{
         .file = b.path("src/runtime/FortranMain/Fortran_main.c"),
         .flags = &.{
@@ -132,7 +132,7 @@ fn buildFortranMain(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
     if (libmain.rootModuleTarget().abi != .msvc)
         libmain.linkLibCpp()
     else {
-        libmain.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
+        libmain.root_module.addCMacro("_CRT_SECURE_NO_WARNINGS", "");
         libmain.linkLibC();
     }
     return libmain;
@@ -150,8 +150,8 @@ fn buildFortranDecimal(b: *std.Build, options: libConfig) *std.Build.Step.Compil
         .optimize = options.optimize,
         .version = flang_version,
     });
-    libdecimal.addIncludePath(b.path("include"));
-    libdecimal.addCSourceFiles(.{
+    libdecimal.root_module.addIncludePath(b.path("include"));
+    libdecimal.root_module.addCSourceFiles(.{
         .files = lib_decimal,
         .flags = &.{
             "-Wall",
@@ -160,13 +160,13 @@ fn buildFortranDecimal(b: *std.Build, options: libConfig) *std.Build.Step.Compil
         },
     });
     switch (libdecimal.rootModuleTarget().cpu.arch.endian()) {
-        .big => libdecimal.defineCMacro("FLANG_BIG_ENDIAN", null),
-        .little => libdecimal.defineCMacro("FLANG_LITTLE_ENDIAN", null),
+        .big => libdecimal.root_module.addCMacro("FLANG_BIG_ENDIAN", "1"),
+        .little => libdecimal.root_module.addCMacro("FLANG_LITTLE_ENDIAN", "1"),
     }
     if (libdecimal.rootModuleTarget().abi != .msvc)
         libdecimal.linkLibCpp()
     else {
-        libdecimal.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
+        libdecimal.root_module.addCMacro("_CRT_SECURE_NO_WARNINGS", "");
         libdecimal.linkLibC();
     }
     return libdecimal;
@@ -187,18 +187,18 @@ fn buildTest(b: *std.Build, options: exeInfo) *std.Build.Step.Compile {
         .optimize = options.optimize,
     });
     switch (exe.rootModuleTarget().cpu.arch.endian()) {
-        .big => exe.defineCMacro("FLANG_BIG_ENDIAN", null),
-        .little => exe.defineCMacro("FLANG_LITTLE_ENDIAN", null),
+        .big => exe.root_module.addCMacro("FLANG_BIG_ENDIAN", "1"),
+        .little => exe.root_module.addCMacro("FLANG_LITTLE_ENDIAN", "1"),
     }
     for (options.lib.root_module.include_dirs.items) |dir| {
         if (dir == .other_step) continue;
-        exe.addIncludePath(dir.path);
+        exe.root_module.addIncludePath(dir.path);
     }
     exe.linkLibrary(options.lib);
     if (exe.rootModuleTarget().abi != .msvc)
         exe.linkLibCpp()
     else {
-        exe.defineCMacro("_CRT_SECURE_NO_WARNINGS", null);
+        exe.root_module.addCMacro("_CRT_SECURE_NO_WARNINGS", "");
         exe.linkLibC();
     }
     return exe;
