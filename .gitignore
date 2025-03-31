@@ -33,3 +33,4 @@
 
 *zig-*/
 build/
+CMakeLists.txt

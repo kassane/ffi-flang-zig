@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const flang_version: std.SemanticVersion = .{
-    .major = 18,
+    .major = 19,
     .minor = 1,
     .patch = 7,
 };
@@ -14,11 +14,6 @@ pub fn build(b: *std.Build) void {
     const amalgamation = b.option(bool, "amalgamation", "Build as amalgamation [default: false]") orelse false;
     const tests = b.option(bool, "enable-tests", "Build tests [default: false]") orelse false;
 
-    const libMain = buildFortranMain(b, .{
-        .target = target,
-        .optimize = optimize,
-        .is_shared = shared,
-    });
     const libDec = buildFortranDecimal(b, .{
         .target = target,
         .optimize = optimize,
@@ -31,10 +26,8 @@ pub fn build(b: *std.Build) void {
     });
 
     if (amalgamation) {
-        if (!tests) libRuntime.linkLibrary(libMain);
         libRuntime.linkLibrary(libDec);
     } else {
-        b.installArtifact(libMain);
         b.installArtifact(libDec);
     }
     b.installArtifact(libRuntime);
@@ -107,35 +100,6 @@ fn buildFortranRuntime(b: *std.Build, options: libConfig) *std.Build.Step.Compil
         },
     });
     return libfortran;
-}
-
-fn buildFortranMain(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
-    const libmain = if (options.is_shared) b.addSharedLibrary(.{
-        .name = "Fortran_main",
-        .target = options.target,
-        .optimize = options.optimize,
-        .version = flang_version,
-    }) else b.addStaticLibrary(.{
-        .name = "Fortran_main",
-        .target = options.target,
-        .optimize = options.optimize,
-        .version = flang_version,
-    });
-    libmain.root_module.addIncludePath(b.path("include"));
-    libmain.addCSourceFile(.{
-        .file = b.path("src/runtime/FortranMain/Fortran_main.c"),
-        .flags = &.{
-            "-Wall",
-            "-Wextra",
-        },
-    });
-    if (libmain.rootModuleTarget().abi != .msvc)
-        libmain.linkLibCpp()
-    else {
-        libmain.root_module.addCMacro("_CRT_SECURE_NO_WARNINGS", "");
-        libmain.linkLibC();
-    }
-    return libmain;
 }
 
 fn buildFortranDecimal(b: *std.Build, options: libConfig) *std.Build.Step.Compile {
@@ -227,12 +191,14 @@ const runtime = &.{
     "src/runtime/execute.cpp",
     "src/runtime/extensions.cpp",
     "src/runtime/extrema.cpp",
+    "src/runtime/external-unit.cpp",
     "src/runtime/file.cpp",
     "src/runtime/findloc.cpp",
     "src/runtime/format.cpp",
     "src/runtime/inquiry.cpp",
     "src/runtime/internal-unit.cpp",
     "src/runtime/io-api.cpp",
+    "src/runtime/io-api-minimal.cpp",
     "src/runtime/io-error.cpp",
     "src/runtime/io-stmt.cpp",
     "src/runtime/iostat.cpp",
@@ -246,8 +212,10 @@ const runtime = &.{
     "src/runtime/numeric.cpp",
     "src/runtime/pointer.cpp",
     "src/runtime/product.cpp",
+    "src/runtime/pseudo-unit.cpp",
     "src/runtime/ragged.cpp",
     "src/runtime/random.cpp",
+    "src/runtime/reduce.cpp",
     "src/runtime/reduction.cpp",
     "src/runtime/stat.cpp",
     "src/runtime/stop.cpp",
